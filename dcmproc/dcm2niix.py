@@ -11,7 +11,7 @@ import os
 import sys
 import subprocess
 
-from .dcmtags import create_pid_pname_from_onecol
+from dcmproc.common.dcmtags import create_pid_pname_from_onecol
 
 #-----------------------------------------------------------------------------------------------------
 #

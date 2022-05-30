@@ -12,8 +12,8 @@ import argparse
 
 import pandas as pd
 
-from dcmproc.dump2csv import dump_uihpct_bundles_2_df_datacenter_v1
-from dcmproc.csvutils import cvs_copy_uihpct_bundles_datacenter_v1
+from dcmproc.uih.uihpct_csv import dump_uihpct_bundles_2_df_datacenter_v1
+from dcmproc.uih.uihpct_csv import cvs_copy_uihpct_bundles_2_datacenter_v1
 
 #-----------------------------------------------------------------------------------------------------
 #
@@ -55,4 +55,4 @@ if __name__ == '__main__':
             run_copy = False
         if run_copy:
             df = pd.read_csv(args.csvfile)
-            cvs_copy_uihpct_bundles_datacenter_v1(df)
+            cvs_copy_uihpct_bundles_2_datacenter_v1(df)
