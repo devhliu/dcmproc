@@ -12,7 +12,7 @@ from setuptools import setup, find_packages
 required_packages = ['pydicom', 'pandas']
 
 setup(name='dcmproc',
-      version='0.0.1',
+      version='0.0.2',
       description='A python processing package for various dicom operation',
       author='UIH-MI-RECON',
       author_email='hui.liu02@united-imaging.com',

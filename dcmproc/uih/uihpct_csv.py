@@ -79,7 +79,7 @@ class DUMP_UIHPCT_BUNDLES_2_ONE_ROW():
 
     #----------------------------------------------------------------------------------------------------
     #
-    def update_bundles(self, bundles_root):
+    def update_bundles_by_petimage(self, bundles_root):
         """
         
         Args:
@@ -103,6 +103,9 @@ class DUMP_UIHPCT_BUNDLES_2_ONE_ROW():
         PET_dcmfile = ''
         if self.BUNDLES_Image:
             dcmfiles = glob(os.path.join(os.path.join(subroot_Image, '*', '00000001.dcm')))
+            if len(dcmfiles) == 0: 
+                self.BUNDLES_Image = False
+                return
             for dcmfile in dcmfiles:
                 ds = pydicom.read_file(dcmfile, stop_before_pixels=True, force=True)
                 if ds.Modality == 'PT' and ds.Manufacturer == 'UIH': PET_dcmfile = dcmfile
@@ -113,17 +116,62 @@ class DUMP_UIHPCT_BUNDLES_2_ONE_ROW():
                     if key.startswith('PT') or key.startswith('BUNDLES'): continue
                     if ds.get_item(key) is None: continue
                     self.__dict__[key] = ds[key].value
+                try: 
+                    # upate PET specific dcm tags
+                    self.PT_SourceIsotopeName = str(ds[TagSourceIsotopeName].value).replace('-', '')
+                    _radiopharm = ds[TagRadiopharmaceuticalInformationSequence].value[0]
+                    self.PT_RadioPharmTracer = str(_radiopharm[TagRadiopharmaceutical].value)
+                    self.PT_RadioPharmStartDateTime = str(_radiopharm[TagRadiopharmaceuticalStartDateTime].value)
+                    self.PT_RadioPharmTotalDose = str(_radiopharm[TagRadionuclideTotalDose].value)
+                    self.PT_RadioPharmHalfTime = str(_radiopharm[TagRadionuclideHalfLife].value)
+                except: self.BUNDLES_Image = False
+            else: self.BUNDLES_Image = False
+        
+        return
+    #----------------------------------------------------------------------------------------------------
+    #
+    def update_bundles_by_petrawdata(self, bundles_root):
+        """
+        
+        Args:
+            bundles_root (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
+        subroot_Image = os.path.join(bundles_root, 'Image')
+        subroot_PET = os.path.join(bundles_root, 'PET')
+        subroot_CT = os.path.join(bundles_root, 'CT')
+        
+        self.BUNDLES_ROOT = bundles_root
+        self.BUNDLES_import_rawdata = os.path.isfile(os.path.join(bundles_root, 'import.rawdata'))
+        self.BUNDLES_CT = os.path.isdir(subroot_CT)
+        self.BUNDLES_Image = os.path.isdir(subroot_Image)
+        self.BUNDLES_PET = os.path.isdir(subroot_PET)
+        self.BUNDLES_PET_DBRecords = os.path.isfile(os.path.join(subroot_PET, 'DBRecords', 'DBRecords.xml'))
+        
+        # read dcm tags from dcm series under bundle_root/PET/RawData/SeriesName/DCMFile
+        if self.BUNDLES_PET:
+            dcmfiles = glob(os.path.join(os.path.join(subroot_PET, 'RawData', '*', '*.dcm')))
+            if len(dcmfiles) == 0: 
+                self.BUNDLES_PET = False
+                return
+            try: 
+                PET_dcmfile = dcmfiles[0]
+                ds = pydicom.read_file(PET_dcmfile, stop_before_pixels=True, force=True)
+                # update dcm tags
+                for key in self.__dict__.keys():
+                    if key.startswith('PT') or key.startswith('BUNDLES'): continue
+                    if ds.get_item(key) is None: continue
+                    self.__dict__[key] = ds[key].value
                 # upate PET specific dcm tags
                 self.PT_SourceIsotopeName = str(ds[TagSourceIsotopeName].value).replace('-', '')
-                _radiopharm = ds[TagRadiopharmaceuticalInformationSequence].value[0]
-                self.PT_RadioPharmTracer = _radiopharm[TagRadiopharmaceutical].value
-                self.PT_RadioPharmStartDateTime = _radiopharm[TagRadiopharmaceuticalStartDateTime].value
-                self.PT_RadioPharmTotalDose = _radiopharm[TagRadionuclideTotalDose].value
-                self.PT_RadioPharmHalfTime = _radiopharm[TagRadionuclideHalfLife].value
-        # read tags from records xml
-        # PET_DBRecords_file = os.path.join(subroot_PET, 'DBRecords', 'DBRecords.xml')
-        # if self.BUNDLES_PET_DBRecords:
-        
+                self.PT_RadioPharmTracer = str(ds[TagRadiopharmaceutical].value).replace('-', '')
+                self.PT_RadioPharmStartDateTime = str(ds[TagSourceIsotopeName].value)
+                self.PT_RadioPharmTotalDose = str(ds[TagRadionuclideTotalDose].value)
+                self.PT_RadioPharmHalfTime = str(ds[TagRadionuclideHalfLife].value)
+            except:
+                self.BUNDLES_PET = False
         return
     #----------------------------------------------------------------------------------------------------
     #
@@ -188,7 +236,7 @@ def dump_uihpct_bundles_2_df_datacenter_v1(working_root):
         # dump valid UIH PCT bundles into row of df
         print('working on %s...'%(sub_root))
         col_tags = DUMP_UIHPCT_BUNDLES_2_ONE_ROW()
-        col_tags.update_bundles(sub_root)
+        col_tags.update_bundles_by_petrawdata(sub_root)
         col_tag = col_tags.get_dcmtags()
         col_tag['StorageRoot'] = ''
         col_tag['SubRoot0'] = str(col_tag['ManufacturerModelName'].upper().replace(' ', '-'))
@@ -214,16 +262,16 @@ def _copy_uihpct_bundles_tree_datacenter_v1(src_bundles_root, target_bundles_roo
         src_bundles_root (_type_): _description_
             Image
             PET
-            CT
-            
+            CT (will be copied)
+            import.rawdata
         target_bundles_root (_type_): _description_
     """
     if not os.path.exists(src_bundles_root): return
     if not os.path.exists(target_bundles_root): return
     
-    # copy <import.rawdata>'
+    # copy <import.rawdata>
     src_import_rawdata_file = os.path.join(src_bundles_root, 'import.rawdata')
-    target_import_rawdata_file = os.path.join(src_bundles_root, 'import.rawdata')
+    target_import_rawdata_file = os.path.join(target_bundles_root, 'import.rawdata')
     if os.path.isfile(src_import_rawdata_file):
         shutil.copyfile(src_import_rawdata_file, target_import_rawdata_file)
     
@@ -257,7 +305,8 @@ def _copy_uihpct_bundles_tree_datacenter_v1(src_bundles_root, target_bundles_roo
                 abs_target_file = os.path.join(target_subroot, src_filename)
                 if not os.path.isfile(abs_target_file): shutil.copyfile(abs_src_file, abs_target_file)
                 
-    # copy Other dicoms
+    # copy other dicoms under this src_bundles_root into target_bundles_root/Image
+    # for speed reason, the dicoms in this group are not validated
     dcm_series_subdirs = os.listdir(src_bundles_root)
     dcm_series_subroots = []
     for dcm_series_subdir in dcm_series_subdirs:
@@ -274,6 +323,7 @@ def _copy_uihpct_bundles_tree_datacenter_v1(src_bundles_root, target_bundles_roo
             if re.match('[0-9]*.dcm', dcm_filename) is None: continue
             target_dcm_file = os.path.join(target_dcm_series_subroot, dcm_filename)
             if not os.path.isfile(target_dcm_file): shutil.copyfile(dcm_file, target_dcm_file)
+    
     return
         
 #------------------------------------------------------------------------------------------------------
@@ -293,7 +343,8 @@ def cvs_copy_uihpct_bundles_2_datacenter_v1(df):
     for idx, row in df.iterrows():
         target_root = row['StorageRoot']
         if target_root == '': continue
-        if target_root == 'NA': continue
+        if target_root == 'NOTRUN': continue
+        if os.path.sep not in target_root: continue
         if not os.path.isdir(target_root): continue
         target_bundles_subroot = os.path.join(target_root, row['SubRoot0'], row['SubRoot1'], 
                                               row['SubRoot2'], row['SubRoot3'], row['SubRoot4'])
