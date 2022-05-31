@@ -106,6 +106,7 @@ class DUMP_UIHPCT_BUNDLES_2_ONE_ROW():
             if len(dcmfiles) == 0: 
                 self.BUNDLES_Image = False
                 return
+            # identify right dicom file with PT information
             for dcmfile in dcmfiles:
                 ds = pydicom.read_file(dcmfile, stop_before_pixels=True, force=True)
                 if ds.Modality == 'PT' and ds.Manufacturer == 'UIH': PET_dcmfile = dcmfile
@@ -116,8 +117,14 @@ class DUMP_UIHPCT_BUNDLES_2_ONE_ROW():
                     if key.startswith('PT') or key.startswith('BUNDLES'): continue
                     if ds.get_item(key) is None: continue
                     self.__dict__[key] = ds[key].value
+                # update if there is specific characterset used
+                if ds.get(TagSpecificEncoding) is not None:
+                    _special_encoding = pydicom.charset.convert_encoding(ds[TagSpecificEncoding].value)[0]
+                    # only apply for insitutename and patientname
+                    self.InstitutionName = ds[TagInstitutionName].value.encode(_special_encoding).decode()
+                    self.PatientName = ds[TagPatientName].value.encode(_special_encoding).decode()
+                # upate PET specific dcm tags
                 try: 
-                    # upate PET specific dcm tags
                     self.PT_SourceIsotopeName = str(ds[TagSourceIsotopeName].value).replace('-', '')
                     _radiopharm = ds[TagRadiopharmaceuticalInformationSequence].value[0]
                     self.PT_RadioPharmTracer = str(_radiopharm[TagRadiopharmaceutical].value)
@@ -164,10 +171,16 @@ class DUMP_UIHPCT_BUNDLES_2_ONE_ROW():
                     if key.startswith('PT') or key.startswith('BUNDLES'): continue
                     if ds.get_item(key) is None: continue
                     self.__dict__[key] = ds[key].value
+                # update if there is specific characterset used
+                if ds.get(TagSpecificEncoding) is not None:
+                    _special_encoding = pydicom.charset.convert_encoding(ds[TagSpecificEncoding].value)[0]
+                    # only apply for insitutename and patientname
+                    self.InstitutionName = ds[TagInstitutionName].value.encode(_special_encoding).decode()
+                    self.PatientName = ds[TagPatientName].value.encode(_special_encoding).decode()
                 # upate PET specific dcm tags
                 self.PT_SourceIsotopeName = str(ds[TagSourceIsotopeName].value).replace('-', '')
                 self.PT_RadioPharmTracer = str(ds[TagRadiopharmaceutical].value).replace('-', '')
-                self.PT_RadioPharmStartDateTime = str(ds[TagSourceIsotopeName].value)
+                self.PT_RadioPharmStartDateTime = str(ds[TagRadiopharmaceuticalStartDateTime].value)
                 self.PT_RadioPharmTotalDose = str(ds[TagRadionuclideTotalDose].value)
                 self.PT_RadioPharmHalfTime = str(ds[TagRadionuclideHalfLife].value)
             except:
@@ -183,15 +196,16 @@ class DUMP_UIHPCT_BUNDLES_2_ONE_ROW():
 
 #------------------------------------------------------------------------------------------------------
 #
-def dump_uihpct_bundles_2_df(working_root):
+def dump_uihpct_bundles_2_df(working_root, csv_file, save_per_rows=100):
     """_summary_
 
     Args:
         working_root (_type_): _description_
-
+        csv_file (_type_): _description_
     Returns:
         _type_: _description_
     """
+    if save_per_rows <= 0: save_per_rows = 1
     tags = []
     for sub_root, _, _ in os.walk(working_root):
         # check whether sub_root is valid UIH PCT Bundles root
@@ -201,30 +215,43 @@ def dump_uihpct_bundles_2_df(working_root):
         if not all([val_0, val_1, val_2]): continue
         # dump valid UIH PCT bundles into row of df
         col_tags = DUMP_UIHPCT_BUNDLES_2_ONE_ROW()
-        col_tags.update_bundles(sub_root)
+        col_tags.update_bundles_by_petrawdata(sub_root)
         tags.append(col_tags.get_dcmtags())
-    return pd.DataFrame(tags)
+        
+        # save per rows
+        if len(tags) % save_per_rows != 0: continue
+        if os.path.isfile(csv_file): 
+            df_0 = pd.read_csv(csv_file)
+            df_i = pd.DataFrame(tags)
+            df_1 = pd.concat([df_0, df_i], axis=0)
+            df_1.to_csv(csv_file)
+        else: 
+            df_0 = pd.DataFrame(tags)
+            df_0.to_csv(csv_file)
+        tags = []
+    return
 
 #------------------------------------------------------------------------------------------------------
 #
 #   UIH PCT Bundles Operation Utils with CSV supporting
 #       datacenter data structure v1
-#       storageroot/modality/institution/tracer/pid-pn/studydate/[Image, PET, import.rawdata]
+#       storageroot/modality/institution/tracer/pid-pn-studydate/[Image, PET, import.rawdata]
 #
 #------------------------------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------------------------------
 #
-def dump_uihpct_bundles_2_df_datacenter_v1(working_root):
+def dump_uihpct_bundles_2_df_datacenter_v1(working_root, csv_file, save_per_rows=100):
     """_summary_
         dump uihpct PET bundles with additional tags:
             
     Args:
         working_root (_type_): _description_
-
+        csv_file (_type_): _description_
     Returns:
         _type_: _description_
     """
+    if save_per_rows <= 0: save_per_rows = 1
     tags = []
     for sub_root, _, _ in os.walk(working_root):
         # check whether sub_root is valid UIH PCT Bundles root
@@ -239,19 +266,29 @@ def dump_uihpct_bundles_2_df_datacenter_v1(working_root):
         col_tags.update_bundles_by_petrawdata(sub_root)
         col_tag = col_tags.get_dcmtags()
         col_tag['StorageRoot'] = ''
-        col_tag['SubRoot0'] = str(col_tag['ManufacturerModelName'].upper().replace(' ', '-'))
+        col_tag['SubRoot0'] = str(col_tag['ManufacturerModelName']).upper().replace(' ', '-')
         col_tag['SubRoot1'] = re.sub(r'[^a-zA-Z0-9\s]', repl='', string=str(col_tag['InstitutionName'])).upper().replace(' ', '_')
         col_tag['SubRoot2'] = str(col_tag['PT_SourceIsotopeName']) + '-' + \
                               re.sub(r'[^a-zA-Z0-9\s]', repl='', string=str(col_tag['PT_RadioPharmTracer'])).upper().replace(' ', '')
         col_tag['SubRoot3'] = 'PID-' \
                               + re.sub(r'[^a-zA-Z0-9\s]', repl='', string=str(col_tag['PatientID'])).upper().replace(' ', '') \
                               + '-PN-' \
-                              +  re.sub(r'[^a-zA-Z0-9\s]', repl='', string=str(col_tag['PatientName'])).upper().replace(' ', '')
-        col_tag['SubRoot4'] = 'S-' + str(col_tag['StudyDate']) + str(col_tag['StudyTime'])[:4]
-        
+                              +  re.sub(r'[^a-zA-Z0-9\s]', repl='', string=str(col_tag['PatientName'])).upper().replace(' ', '') \
+                              + '-' + str(col_tag['StudyDate']) + str(col_tag['StudyTime'])[:4]
         tags.append(col_tag)
         
-    return pd.DataFrame(tags)
+        # save per rows
+        if len(tags) % save_per_rows != 0: continue
+        if os.path.isfile(csv_file): 
+            df_0 = pd.read_csv(csv_file)
+            df_i = pd.DataFrame(tags)
+            df_1 = pd.concat([df_0, df_i], axis=0)
+            df_1.to_csv(csv_file)
+        else: 
+            df_0 = pd.DataFrame(tags)
+            df_0.to_csv(csv_file)
+        tags = []
+    return
 
 #------------------------------------------------------------------------------------------------------
 #
@@ -323,7 +360,6 @@ def _copy_uihpct_bundles_tree_datacenter_v1(src_bundles_root, target_bundles_roo
             if re.match('[0-9]*.dcm', dcm_filename) is None: continue
             target_dcm_file = os.path.join(target_dcm_series_subroot, dcm_filename)
             if not os.path.isfile(target_dcm_file): shutil.copyfile(dcm_file, target_dcm_file)
-    
     return
         
 #------------------------------------------------------------------------------------------------------
@@ -347,7 +383,7 @@ def cvs_copy_uihpct_bundles_2_datacenter_v1(df):
         if os.path.sep not in target_root: continue
         if not os.path.isdir(target_root): continue
         target_bundles_subroot = os.path.join(target_root, row['SubRoot0'], row['SubRoot1'], 
-                                              row['SubRoot2'], row['SubRoot3'], row['SubRoot4'])
+                                              row['SubRoot2'], row['SubRoot3'])
         os.makedirs(target_bundles_subroot, exist_ok=True)
         src_bundles_subroot = row['BUNDLES_ROOT']
         if not os.path.isdir(src_bundles_subroot): continue

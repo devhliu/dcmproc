@@ -9,6 +9,13 @@
 
 #------------------------------------------------------------------------------------------------------
 #
+
+# specific characterset encoding
+TagSpecificEncoding            = [0x0008, 0x0005]
+
+# institution
+TagInstitutionName              = [0x0008, 0x0080]
+
 # general tags - patient
 TagPatientName                 = [0x0010, 0x0010]
 TagPatientID                   = [0x0010, 0x0020]

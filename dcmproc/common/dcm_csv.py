@@ -55,6 +55,12 @@ class DUMP_DCMSERIESTAGS_2_ONE_ROW():
         for key in self.__dict__.keys():
             if ds.get_item(key) is None: continue
             self.__dict__[key] = ds[key].value
+        # update if there is specific characterset used
+        if ds.get(TagSpecificEncoding) is None: return
+        _special_encoding = pydicom.charset.convert_encoding(ds[TagSpecificEncoding].value)[0]
+        # only apply for insitutename and patientname
+        self.InstitutionName = ds[TagInstitutionName].value.encode(_special_encoding).decode()
+        self.PatientName = ds[TagPatientName].value.encode(_special_encoding).decode()
         return
     #----------------------------------------------------------------------------------------------------
     #
