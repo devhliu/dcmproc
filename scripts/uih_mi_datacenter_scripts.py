@@ -12,8 +12,8 @@ import argparse
 
 import pandas as pd
 
-from dcmproc.uih.uihpct_csv import dump_uihpct_bundles_2_df_datacenter_v1
-from dcmproc.uih.uihpct_csv import cvs_copy_uihpct_bundles_2_datacenter_v1
+from dcmproc.uih.uihpct_xlsx import dump_uihpct_bundles_2_xlsx_datacenter_v1 as dump_2_xlsx
+from dcmproc.uih.uihpct_xlsx import xlsx_copy_uihpct_bundles_2_datacenter_v1 as copy_using_xlsx
 
 #-----------------------------------------------------------------------------------------------------
 #
@@ -22,10 +22,10 @@ from dcmproc.uih.uihpct_csv import cvs_copy_uihpct_bundles_2_datacenter_v1
 #-----------------------------------------------------------------------------------------------------
 if __name__ == '__main__':
     # dump
-    csv_file = 'M:\\code\\dataserver03_mi_MI_RECON_dumped.csv'
-    working_root = '\\\\dataserver03\\mi\\MI_RECON'
-    dump_uihpct_bundles_2_df_datacenter_v1(working_root, csv_file, save_per_rows=100)
+    working_root = '\\\\dataserver03\\mi\\MI_RECON\\3.0'
+    xlsx_file = 'M:\\code\\dataserver03_mi_MI_RECON_3.0_dumped.xlsx'
+    dump_2_xlsx(working_root, xlsx_file, save_per_cases=100, mode='splitted')
     
     # xcopy
-    #df = pd.read_csv('M:\\code\\xijingclinicaldata_xcopy_working.csv')
-    #cvs_copy_uihpct_bundles_2_datacenter_v1(df)
+    #xlsx_file = 'M:\\code\\xijingclinicaldata_xcopy_working.xlsx'
+    #copy_using_xlsx(xlsx_file)

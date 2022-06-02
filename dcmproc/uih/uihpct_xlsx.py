@@ -196,12 +196,12 @@ class DUMP_UIHPCT_BUNDLES_2_ONE_ROW():
 
 #------------------------------------------------------------------------------------------------------
 #
-def dump_uihpct_bundles_2_csv(working_root, csv_file, save_per_rows=100):
+def dump_uihpct_bundles_2_xlsx(working_root, xlsx_file, save_per_rows=100):
     """_summary_
 
     Args:
         working_root (_type_): _description_
-        csv_file (_type_): _description_
+        xlsx_file (_type_): _description_
     Returns:
         _type_: _description_
     """
@@ -220,14 +220,14 @@ def dump_uihpct_bundles_2_csv(working_root, csv_file, save_per_rows=100):
         
         # save per rows
         if len(tags) % save_per_rows != 0: continue
-        if os.path.isfile(csv_file): 
-            df_0 = pd.read_csv(csv_file, encoding = "utf-8")
+        if os.path.isfile(xlsx_file): 
+            df_0 = pd.read_excel(xlsx_file)
             df_i = pd.DataFrame(tags)
             df_1 = pd.concat([df_0, df_i], axis=0)
-            df_1.to_csv(csv_file, encoding = "utf-8")
+            df_1.to_excel(xlsx_file)
         else: 
             df_0 = pd.DataFrame(tags)
-            df_0.to_csv(csv_file, encoding = "utf-8")
+            df_0.to_excel(xlsx_file)
         tags = []
     return
 
@@ -241,13 +241,13 @@ def dump_uihpct_bundles_2_csv(working_root, csv_file, save_per_rows=100):
 
 #------------------------------------------------------------------------------------------------------
 #
-def dump_uihpct_bundles_2_csv_datacenter_v1(working_root, csv_file, save_per_cases=100, mode='splitted'):
+def dump_uihpct_bundles_2_xlsx_datacenter_v1(working_root, xlsx_file, save_per_cases=100, mode='splitted'):
     """_summary_
         dump uihpct PET bundles with additional tags:
             
     Args:
         working_root (_type_): _description_
-        csv_file (_type_): _description_
+        xlsx_file (_type_): _description_
         save_per_cases (_type_): _description_
         mode (_type_): _description_ ['continuous', 'splitted']
     Returns:
@@ -283,34 +283,34 @@ def dump_uihpct_bundles_2_csv_datacenter_v1(working_root, csv_file, save_per_cas
         
         if len(tags) % save_per_cases != 0: continue
         if mode == 'continuous':
-            if os.path.isfile(csv_file): 
-                df_0 = pd.read_csv(csv_file, encoding = "utf-8")
+            if os.path.isfile(xlsx_file): 
+                df_0 = pd.read_excel(xlsx_file)
                 df_i = pd.DataFrame(tags)
                 df_1 = pd.concat([df_0, df_i], axis=0)
-                df_1.to_csv(csv_file, encoding = "utf-8")
+                df_1.to_excel(xlsx_file)
             else: 
                 df_0 = pd.DataFrame(tags)
-                df_0.to_csv(csv_file, encoding = "utf-8")
+                df_0.to_excel(xlsx_file)
         elif mode =='splitted':
             df_i = pd.DataFrame(tags)
-            df_i.to_csv(csv_file[:-4] + '-{:06d}.csv'.format(i_splitted), encoding = "utf-8")
+            df_i.to_excel(xlsx_file[:-5] + '-{:06d}.xlsx'.format(i_splitted))
             i_splitted += 1
         tags = []
     
-    # when the len(tags) is not N x save_per_cases:
+    # in the case of the len(tags) is not N x save_per_cases:
     if len(tags) % save_per_cases != 0:
         if mode == 'continuous':
-            if os.path.isfile(csv_file): 
-                df_0 = pd.read_csv(csv_file, encoding = "utf-8")
+            if os.path.isfile(xlsx_file): 
+                df_0 = pd.read_excel(xlsx_file)
                 df_i = pd.DataFrame(tags)
                 df_1 = pd.concat([df_0, df_i], axis=0)
-                df_1.to_csv(csv_file, encoding = "utf-8")
+                df_1.to_excel(xlsx_file)
             else: 
                 df_0 = pd.DataFrame(tags)
-                df_0.to_csv(csv_file, encoding = "utf-8")
+                df_0.to_excel(xlsx_file)
         elif mode =='splitted':
             df_i = pd.DataFrame(tags)
-            df_i.to_csv(csv_file[:-4] + '-{:06d}.csv'.format(i_splitted), encoding = "utf-8")
+            df_i.to_excel(xlsx_file[:-5] + '-{:06d}.xlsx'.format(i_splitted))
     return
 
 #------------------------------------------------------------------------------------------------------
@@ -387,7 +387,7 @@ def _copy_uihpct_bundles_tree_datacenter_v1(src_bundles_root, target_bundles_roo
         
 #------------------------------------------------------------------------------------------------------
 #
-def csv_copy_uihpct_bundles_2_datacenter_v1(csv_file):
+def xlsx_copy_uihpct_bundles_2_datacenter_v1(df):
     """_summary_
         copy uihpct PET bundles from src_root into target_root with naming organization defined in df
         paired with dump_uihpct_bundles_2_df_datacenter_v1
@@ -399,7 +399,6 @@ def csv_copy_uihpct_bundles_2_datacenter_v1(csv_file):
     Returns:
         _type_: _description_
     """
-    df = pd.read_csv(csv_file, encoding = "utf-8")
     for idx, row in df.iterrows():
         target_root = row['StorageRoot']
         if target_root == '': continue
