@@ -9,7 +9,7 @@
 
 from setuptools import setup, find_packages
 
-required_packages = ['pydicom', 'pandas']
+required_packages = ['pydicom', 'pandas', 'pypinyin']
 
 setup(name='dcmproc',
       version='0.0.2',

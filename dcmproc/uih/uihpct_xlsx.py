@@ -15,6 +15,8 @@ import pydicom
 import pandas as pd
 
 from glob import glob
+from pypinyin import lazy_pinyin
+
 
 from dcmproc.uih.uih_dcmtags import *
 from dcmproc.common.dcmtags import *
@@ -238,7 +240,22 @@ def dump_uihpct_bundles_2_xlsx(working_root, xlsx_file, save_per_rows=100):
 #       storageroot/modality/institution/tracer/pid-pn-studydate/[Image, PET, import.rawdata]
 #
 #------------------------------------------------------------------------------------------------------
+#------------------------------------------------------------------------------------------------------
+#
+def _cn_2_pinyin(cn_string):
+    """_summary_
 
+    Args:
+        cn_string (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    _pinyin_strs = lazy_pinyin(cn_string)
+    pinyin_str = ''
+    for _pinyin_str in _pinyin_strs: pinyin_str += _pinyin_str.capitalize()
+    return pinyin_str
+    
 #------------------------------------------------------------------------------------------------------
 #
 def dump_uihpct_bundles_2_xlsx_datacenter_v1(working_root, xlsx_file, save_per_cases=100, mode='splitted'):
@@ -271,13 +288,13 @@ def dump_uihpct_bundles_2_xlsx_datacenter_v1(working_root, xlsx_file, save_per_c
         col_tag = col_tags.get_dcmtags()
         col_tag['StorageRoot'] = ''
         col_tag['SubRoot0'] = str(col_tag['ManufacturerModelName']).upper().replace(' ', '-')
-        col_tag['SubRoot1'] = re.sub(r'[^a-zA-Z0-9\s]', repl='', string=str(col_tag['InstitutionName'])).upper().replace(' ', '_')
+        col_tag['SubRoot1'] = re.sub(r'[^a-zA-Z0-9\s]', repl='', string=_cn_2_pinyin(str(col_tag['InstitutionName']))).replace(' ', '_')
         col_tag['SubRoot2'] = str(col_tag['PT_SourceIsotopeName']) + '-' + \
                               re.sub(r'[^a-zA-Z0-9\s]', repl='', string=str(col_tag['PT_RadioPharmTracer'])).upper().replace(' ', '')
         col_tag['SubRoot3'] = 'PID-' \
                               + re.sub(r'[^a-zA-Z0-9\s]', repl='', string=str(col_tag['PatientID'])).upper().replace(' ', '') \
                               + '-PN-' \
-                              +  re.sub(r'[^a-zA-Z0-9\s]', repl='', string=str(col_tag['PatientName'])).upper().replace(' ', '') \
+                              +  re.sub(r'[^a-zA-Z0-9\s]', repl='', string=_cn_2_pinyin(str(col_tag['PatientName']))).replace(' ', '') \
                               + '-' + str(col_tag['StudyDate']) + str(col_tag['StudyTime'])[:4]
         tags.append(col_tag)
         
@@ -326,14 +343,20 @@ def _copy_uihpct_bundles_tree_datacenter_v1(src_bundles_root, target_bundles_roo
             import.rawdata
         target_bundles_root (_type_): _description_
     """
-    if not os.path.exists(src_bundles_root): return
-    if not os.path.exists(target_bundles_root): return
+    # error_code
+    error_code = ''
+    error_code_final = '| '
+    
+    if not os.path.exists(src_bundles_root): return error_code
+    if not os.path.exists(target_bundles_root): return error_code
     
     # copy <import.rawdata>
     src_import_rawdata_file = os.path.join(src_bundles_root, 'import.rawdata')
     target_import_rawdata_file = os.path.join(target_bundles_root, 'import.rawdata')
     if os.path.isfile(src_import_rawdata_file):
-        shutil.copyfile(src_import_rawdata_file, target_import_rawdata_file)
+        try: shutil.copyfile(src_import_rawdata_file, target_import_rawdata_file)
+        except: error_code = 'import_rawdata_failed'
+    if error_code == 'import_rawdata_failed': error_code_final += 'import_rawdata_failed | '
     
     # copy <PET> rawdata
     src_PET_rawdata_subroot = os.path.join(src_bundles_root, 'PET')
@@ -344,11 +367,14 @@ def _copy_uihpct_bundles_tree_datacenter_v1(src_bundles_root, target_bundles_roo
             os.makedirs(target_subroot, exist_ok=True)
             for src_subdir in src_subdirs:
                 if src_subdir not in ['.', '..']: os.makedirs(os.path.join(target_subroot, src_subdir), exist_ok=True)
-            for src_filename in src_filenames:
-                abs_src_file = os.path.join(src_subroot, src_filename)
-                abs_target_file = os.path.join(target_subroot, src_filename)
-                if not os.path.isfile(abs_target_file): shutil.copyfile(abs_src_file, abs_target_file)
-                
+            try:
+                for src_filename in src_filenames:
+                    abs_src_file = os.path.join(src_subroot, src_filename)
+                    abs_target_file = os.path.join(target_subroot, src_filename)
+                    if not os.path.isfile(abs_target_file): shutil.copyfile(abs_src_file, abs_target_file)
+            except: error_code = 'PET_rawdata_failed'
+    if error_code == 'PET_rawdata_failed': error_code_final += 'PET_rawdata_failed | '
+    
     # copy <Image> dicoms
     src_dcm_subroot = os.path.join(src_bundles_root, 'Image')
     if os.path.exists(src_dcm_subroot):
@@ -358,13 +384,16 @@ def _copy_uihpct_bundles_tree_datacenter_v1(src_bundles_root, target_bundles_roo
             os.makedirs(target_subroot, exist_ok=True)
             for src_subdir in src_subdirs:
                 if src_subdir not in ['.', '..']: os.makedirs(os.path.join(target_subroot, src_subdir), exist_ok=True)
-            for src_filename in src_filenames:
-                # not to copy repeated dcms: xxxxxxxx_x.dcm and only copy xxxxxxxx.dcm
-                if re.match('[0-9]*.dcm', src_filename) is None: continue
-                abs_src_file = os.path.join(src_subroot, src_filename)
-                abs_target_file = os.path.join(target_subroot, src_filename)
-                if not os.path.isfile(abs_target_file): shutil.copyfile(abs_src_file, abs_target_file)
-                
+            try:
+                for src_filename in src_filenames:
+                    # not to copy repeated dcms: xxxxxxxx_x.dcm and only copy xxxxxxxx.dcm
+                    if re.match('[0-9]*.dcm', src_filename) is None: continue
+                    abs_src_file = os.path.join(src_subroot, src_filename)
+                    abs_target_file = os.path.join(target_subroot, src_filename)
+                    if not os.path.isfile(abs_target_file): shutil.copyfile(abs_src_file, abs_target_file)
+            except: error_code = 'DICOM_failed'
+    if error_code == 'DICOM_failed': error_code_final += 'DICOM_failed | '
+    
     # copy other dicoms under this src_bundles_root into target_bundles_root/Image
     # for speed reason, the dicoms in this group are not validated
     dcm_series_subdirs = os.listdir(src_bundles_root)
@@ -377,17 +406,21 @@ def _copy_uihpct_bundles_tree_datacenter_v1(src_bundles_root, target_bundles_roo
         if len(dcm_files) == 0: continue
         target_dcm_series_subroot = os.path.join(target_bundles_root, 'Image', os.path.basename(src_dcm_series_subroot))
         os.makedirs(target_dcm_series_subroot, exist_ok=True)
-        for dcm_file in dcm_files:
-            dcm_filename = os.path.basename(dcm_file)
-            # not to copy repeated dcms: xxxxxxxx_x.dcm and only copy xxxxxxxx.dcm
-            if re.match('[0-9]*.dcm', dcm_filename) is None: continue
-            target_dcm_file = os.path.join(target_dcm_series_subroot, dcm_filename)
-            if not os.path.isfile(target_dcm_file): shutil.copyfile(dcm_file, target_dcm_file)
-    return
+        try:
+            for dcm_file in dcm_files:
+                dcm_filename = os.path.basename(dcm_file)
+                # not to copy repeated dcms: xxxxxxxx_x.dcm and only copy xxxxxxxx.dcm
+                if re.match('[0-9]*.dcm', dcm_filename) is None: continue
+                target_dcm_file = os.path.join(target_dcm_series_subroot, dcm_filename)
+                if not os.path.isfile(target_dcm_file): shutil.copyfile(dcm_file, target_dcm_file)
+        except: error_code = 'OTHER_DICOM_failed'
+    if error_code == 'OTHER_DICOM_failed': error_code_final += 'OTHER_DICOM_failed |'
+    
+    return error_code_final
         
 #------------------------------------------------------------------------------------------------------
 #
-def xlsx_copy_uihpct_bundles_2_datacenter_v1(df):
+def xlsx_copy_uihpct_bundles_2_datacenter_v1(xlsx_file):
     """_summary_
         copy uihpct PET bundles from src_root into target_root with naming organization defined in df
         paired with dump_uihpct_bundles_2_df_datacenter_v1
@@ -399,6 +432,8 @@ def xlsx_copy_uihpct_bundles_2_datacenter_v1(df):
     Returns:
         _type_: _description_
     """
+    df = pd.read_excel(xlsx_file)
+    df.insert(df.shape[1], 'XCOPY_ERROR', '')
     for idx, row in df.iterrows():
         target_root = row['StorageRoot']
         if target_root == '': continue
@@ -412,10 +447,11 @@ def xlsx_copy_uihpct_bundles_2_datacenter_v1(df):
         if not os.path.isdir(src_bundles_subroot): continue
         
         print('copying %s to %s...'%(idx, target_bundles_subroot))
-        try:
-            #shutil.copytree(src_bundles_subroot, target_bundles_subroot, dirs_exist_ok=True)
-            _copy_uihpct_bundles_tree_datacenter_v1(src_bundles_subroot, target_bundles_subroot)
-            print('<yyyyyy> successed in copying to %s: %s'%(idx, target_bundles_subroot))
-        except:
-            print('<xxxxxx> failed in copying to %s: %s'%(idx, target_bundles_subroot))
+        #shutil.copytree(src_bundles_subroot, target_bundles_subroot, dirs_exist_ok=True)
+        error_code = _copy_uihpct_bundles_tree_datacenter_v1(src_bundles_subroot, target_bundles_subroot)
+        if error_code == '': continue
+        else: 
+            df.loc[idx, 'XCOPY_ERROR'] = error_code
+            print('!!! failed in copying %s to %s'%(idx, target_bundles_subroot))
+            df.to_excel(xlsx_file[:-5] + '_xcopy_log.xlsx')
     return
