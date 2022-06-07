@@ -1,10 +1,10 @@
 #-----------------------------------------------------------------------------------------------------
 #
-#   Project - dlaais-data.dcmproc.utils
+#   Project - dcmproc
 #   Description:
-#       A python processing package for data preparation for dlaais project
-#   Author: huiliu.liu@gmail.com
-#   Created 2021-08-19
+#       A python processing package for various dicom operation
+#   Author: hui.liu02@united-imaging.com
+#   Created 2022-05-28
 #-----------------------------------------------------------------------------------------------------
 
 import os
@@ -36,4 +36,6 @@ def copy_and_reformat_dcms(src_dcm_root, target_dcm_root, check_dcm=False):
                     shutil.copyfile(_dcm_file, file_1)
                 except:
                     print(_dcm_file)
-    
+    return
+#-----------------------------------------------------------------------------------------------------
+#

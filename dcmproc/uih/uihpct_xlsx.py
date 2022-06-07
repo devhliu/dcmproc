@@ -455,3 +455,44 @@ def xlsx_copy_uihpct_bundles_2_datacenter_v1(xlsx_file):
             print('!!! failed in copying %s to %s'%(idx, target_bundles_subroot))
             df.to_excel(xlsx_file[:-5] + '_xcopy_log.xlsx')
     return
+#------------------------------------------------------------------------------------------------------
+#
+def _get_folder_total_size_in_mb(sub_root):
+    """
+    """
+    size = 0
+    for _subroot, _sub_dirs, _filenames in os.walk(sub_root):
+        for _filename in _filenames:
+            _file = os.path.join(_subroot, _filename)
+            size += os.stat(_file).st_size
+    return size / 1048576
+
+#------------------------------------------------------------------------------------------------------
+#
+def xlsx_dump_uihpct_bundles_size_datacenter_v1(pct_bundles_roots, out_xlsx_file):
+    """
+    """
+    tags = {'MODALITY':[], 'INSTITUTION':[], 'TRACER':[], 'PID-PN-STUDYDATETIME':[], 
+            'IMAGE_SIZE(MB)':[], 'PETRAWDATA_SIZE(GB)':[], 'ImportRawdata_EXIST':[]}
+    for pct_bundles_root in pct_bundles_roots:
+        if not os.path.isdir(pct_bundles_root): continue
+        print(pct_bundles_root)
+        pct_bundles_root_strs = pct_bundles_root.split(os.sep)
+        tags['MODALITY'].append(pct_bundles_root_strs[-4])
+        tags['INSTITUTION'].append(pct_bundles_root_strs[-3])
+        tags['TRACER'].append(pct_bundles_root_strs[-2])
+        tags['PID-PN-STUDYDATETIME'].append(pct_bundles_root_strs[-1])
+        # get size
+        pet_subroot = os.path.join(pct_bundles_root, 'PET')
+        if os.path.isdir(pet_subroot): 
+            tags['PETRAWDATA_SIZE(GB)'].append(_get_folder_total_size_in_mb(pet_subroot)/1024)
+        else: tags['PETRAWDATA_SIZE(GB)'].append(0)
+        image_subroot = os.path.join(pct_bundles_root, 'Image')
+        if os.path.isdir(image_subroot):
+            tags['IMAGE_SIZE(MB)'].append(_get_folder_total_size_in_mb(image_subroot))
+        else: tags['IMAGE_SIZE(MB)'].append(0)
+        import_rawdata_file = os.path.join(pct_bundles_root, 'import.rawdata')
+        tags['ImportRawdata_EXIST'].append(os.path.exists(import_rawdata_file))
+    df = pd.DataFrame(tags)
+    df.to_excel(out_xlsx_file)
+    return
