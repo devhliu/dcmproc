@@ -415,7 +415,7 @@ def _copy_uihpct_bundles_tree_datacenter_v1(src_bundles_root, target_bundles_roo
                 if not os.path.isfile(target_dcm_file): shutil.copyfile(dcm_file, target_dcm_file)
         except: error_code = 'OTHER_DICOM_failed'
     if error_code == 'OTHER_DICOM_failed': error_code_final += 'OTHER_DICOM_failed |'
-    
+    if error_code_final == '| ': error_code_final = ''
     return error_code_final
         
 #------------------------------------------------------------------------------------------------------
