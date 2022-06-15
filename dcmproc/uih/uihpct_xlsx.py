@@ -461,11 +461,65 @@ def _get_folder_total_size_in_mb(sub_root):
     """
     """
     size = 0
-    for _subroot, _sub_dirs, _filenames in os.walk(sub_root):
+    for _subroot, _, _filenames in os.walk(sub_root):
         for _filename in _filenames:
             _file = os.path.join(_subroot, _filename)
             size += os.stat(_file).st_size
     return size / 1048576
+
+#------------------------------------------------------------------------------------------------------
+#
+def check_copy_uihpct_buldles_datacenter_v1(xlsx_dump_info_file, ext='_check'):
+    """
+    """
+    in_xlsx_file = xlsx_dump_info_file
+    out_xlsx_file = in_xlsx_file[:-5] + ext + '.xlsx'
+
+    tags = {'DCM_Check': [], 'PCT_RawData_Check': [], 'ImportRawData_Check': [],
+            'DCM_Size_0(MB)': [], 'DCM_Size_1(MB)': [], 
+            'PCT_RawData_Size_0(GB)': [], 'PCT_RawData_Size_1(GB)': []}
+    df_0  = pd.read_excel(in_xlsx_file)
+    for idx, row in df_0.iterrows():
+        print('checking %s: %s'%(idx, row['BUNDLES_ROOT']))
+        in_bundles_root = os.path.abspath(row['BUNDLES_ROOT'])
+        out_bundles_root = os.path.join(row['StorageRoot'], 
+                                        row['SubRoot0'], row['SubRoot1'], 
+                                        row['SubRoot2'],  row['SubRoot3'])
+        #if not os.path.exists(in_bundles_root):
+        #    tags['DCM_Check'].append(False)
+        #    tags['PCT_RawData_Check'].append(False)
+        #    tags['ImportRawData_Check'].append(False)
+        #    continue
+        if not os.path.exists(out_bundles_root):
+            tags['DCM_Check'].append(False)
+            tags['PCT_RawData_Check'].append(False)
+            tags['ImportRawData_Check'].append(False)
+            tags['DCM_Size_0(MB)'].append(0)
+            tags['DCM_Size_1(MB)'].append(0)
+            tags['PCT_RawData_Size_0(GB)'].append(0)
+            tags['PCT_RawData_Size_1(GB)'].append(0)
+            continue
+        # check dcm size
+        in_dcm_size = _get_folder_total_size_in_mb(os.path.join(in_bundles_root, 'Image'))
+        out_dcm_size = _get_folder_total_size_in_mb(os.path.join(out_bundles_root, 'Image'))
+        tags['DCM_Size_0(MB)'].append(in_dcm_size)
+        tags['DCM_Size_1(MB)'].append(out_dcm_size)
+        if in_dcm_size == out_dcm_size: tags['DCM_Check'].append(True)
+        else: tags['DCM_Check'].append(False)
+        # check PET rawdata size
+        in_PET_size = _get_folder_total_size_in_mb(os.path.join(in_bundles_root, 'PET'))
+        out_PET_size = _get_folder_total_size_in_mb(os.path.join(out_bundles_root, 'PET'))
+        tags['PCT_RawData_Size_0(GB)'].append(in_PET_size)
+        tags['PCT_RawData_Size_1(GB)'].append(out_PET_size/1024)
+        if in_PET_size == out_PET_size: tags['PCT_RawData_Check'].append(True)
+        else: tags['PCT_RawData_Check'].append(False)
+        # check import.rawdata
+        tags['ImportRawData_Check'].append(os.path.isfile(os.path.join(out_bundles_root, 'import.rawdata')))
+
+    df_1 = pd.DataFrame(tags)
+    df = pd.concat([df_0, df_1], axis=1)
+    df.to_excel(out_xlsx_file)
+    return
 
 #------------------------------------------------------------------------------------------------------
 #
