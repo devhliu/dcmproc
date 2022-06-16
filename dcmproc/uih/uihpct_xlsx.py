@@ -433,7 +433,8 @@ def xlsx_copy_uihpct_bundles_2_datacenter_v1(xlsx_file):
         _type_: _description_
     """
     df = pd.read_excel(xlsx_file)
-    df.insert(df.shape[1], 'XCOPY_ERROR', '')
+    cols = df.columns.to_list()
+    if 'XCOPY_ERROR' not in cols: df.insert(df.shape[1], 'XCOPY_ERROR', '')
     for idx, row in df.iterrows():
         target_root = row['StorageRoot']
         if target_root == '': continue
@@ -449,11 +450,9 @@ def xlsx_copy_uihpct_bundles_2_datacenter_v1(xlsx_file):
         print('copying %s to %s...'%(idx, target_bundles_subroot))
         #shutil.copytree(src_bundles_subroot, target_bundles_subroot, dirs_exist_ok=True)
         error_code = _copy_uihpct_bundles_tree_datacenter_v1(src_bundles_subroot, target_bundles_subroot)
-        if error_code == '': continue
-        else: 
-            df.loc[idx, 'XCOPY_ERROR'] = error_code
-            print('!!! failed in copying %s to %s'%(idx, target_bundles_subroot))
-            df.to_excel(xlsx_file[:-5] + '_xcopy_log.xlsx')
+        df.loc[idx, 'XCOPY_ERROR'] = error_code
+        df.to_excel(xlsx_file[:-5] + '_xcopy_log.xlsx')
+        if error_code == '': print('!!! failed in copying %s to %s'%(idx, target_bundles_subroot))
     return
 #------------------------------------------------------------------------------------------------------
 #
